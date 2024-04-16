@@ -5,13 +5,22 @@ import (
 	"time"
 )
 
+/*
+BeaconMeBaby is an amateur radio terminal program to display the live beaconing activity of the
+International Beacon Project. Features of the program will be to interactively select a beaconing
+schedule by band, make notation of beaconing stations recieved, and to submit a program generated
+report to the server.
+
+IBS website : https://www.ncdxf.org/beacon/
+*/
+
 type Beacon struct {
 	callsign, location string
 	position           int
 	status             bool
 }
 
-//var _20m int = 1
+// var _20m int = 1
 var _17m int = 0
 
 //var _15m int = -1
@@ -44,20 +53,23 @@ func getStation(tSlot int) {
 	for _, station := range beacons {
 		band := _17m
 		roughPlace := tSlot + band
+		var printStation = func() {
+			fmt.Printf("%v - %v \n%v\n\n", station.position, station.callsign, station.location)
+		}
 
 		if roughPlace > 18 {
 			new_place := (roughPlace) - tSlot
 			if new_place == station.position {
-				fmt.Printf("%v - %v \n%v\n\n", station.position, station.callsign, station.location)
+				printStation()
 			}
 		} else if roughPlace < 1 {
 			new_place := 18 + tSlot + band
 			if new_place == station.position {
-				fmt.Printf("%v - %v \n%v\n\n", station.position, station.callsign, station.location)
+				printStation()
 			}
 		} else {
 			if roughPlace == station.position {
-				fmt.Printf("%v - %v \n%v\n\n", station.position, station.callsign, station.location)
+				printStation()
 			}
 		}
 	}
@@ -65,7 +77,6 @@ func getStation(tSlot int) {
 
 func main() {
 	for {
-
 		now := time.Now()
 		if now.Second()%10 != 0 {
 			time.Sleep(time.Second * 1)
