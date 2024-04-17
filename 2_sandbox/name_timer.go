@@ -129,7 +129,7 @@ func (m model) View() string {
 
 	var status string
 	if m.lastKey == "" {
-		status = "Waiting for input..."
+		status = "Selects a Band"
 	} else {
 		status = "Current band selected: " + m.inputStyle.Render(m.lastKey)
 	}
