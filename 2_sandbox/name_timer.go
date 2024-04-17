@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -22,12 +23,20 @@ type model struct {
 	inputStyle lipgloss.Style
 	lastKey    string
 	quitting   bool
+	position   int
+	station    stations
 }
 
-//type name struct {
-//	position  int
-//	character string
-//}
+//	type name struct {
+//		position  int
+//		character string
+//	}
+type stations struct {
+	location string
+	callsign string
+	id       int
+	activte  bool
+}
 
 type keyMap struct {
 	Twenty    key.Binding
@@ -93,6 +102,36 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	beacons := []stations{
+		{"United Nations", "4U1UN", 1, true},
+		{"Canada", "VE8AT", 2, true},
+		{"United States", "W6WX", 3, true},
+		{"Hawaii", "KH6RS", 4, true},
+		{"New Zealand", "ZL6B", 5, true},
+		{"Australia", "VK6RBP", 6, true},
+		{"Japan", "JA2IGY", 7, true},
+		{"Russia", "RR9O", 8, true},
+		{"Hong Kong", "VR2B", 9, true},
+		{"Sri Lanka", "4S7B", 10, true},
+		{"South Africa", "ZS6DN", 11, true},
+		{"Kenya", "5Z4B", 12, true},
+		{"Israel", "4X6TU", 13, true},
+		{"Finland", "OH2B", 14, true},
+		{"Madeira", "CS3B", 15, true},
+		{"Argentina", "LU4AA", 16, true},
+		{"Peru", "OA4B", 17, true},
+		{"Venezuela", "YV5B", 18, true},
+	}
+
+	//This needs to be done right so that there is a constant running even that sends a message when changed.
+
+	m.getPosition()
+	for _, beacon := range beacons {
+		if m.position == beacon.id {
+			m.station = beacon
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		// If we set a width on the help menu it can gracefully truncate
@@ -128,16 +167,17 @@ func (m model) View() string {
 	}
 
 	var status string
+
 	if m.lastKey == "" {
 		status = "Selects a Band"
 	} else {
-		status = "Current band selected: " + m.inputStyle.Render(m.lastKey)
+		status = "Current station selected: " + m.inputStyle.Render(m.lastKey)
 	}
 
 	helpView := m.help.View(m.keys)
 	height := 8 - strings.Count(status, "\n") - strings.Count(helpView, "\n")
-
-	return "\n" + status + strings.Repeat("\n", height) + helpView
+	currentStation := m.station
+	return "\n" + status + "\n" + currentStation.callsign + strings.Repeat("\n", height) + helpView
 }
 
 // Main Function
@@ -157,36 +197,21 @@ func main() {
 	}
 }
 
-/*
-func getLetter() (num int, letter string) {
+func (m model) getPosition() tea.Model {
 	now := time.Now()
-	current_time := now.Second()
-	num = 0
-	letter = ""
-	names := []name{
-		{1, "A"},
-		{2, "B"},
-		{3, "C"},
-		{4, "D"},
-		{5, "E"},
-		{6, "F"},
-		{7, "G"},
-		{8, "H"},
-		{9, "I"},
-		{0, "J"},
-	}
 
-	for _, pair := range names {
-		if now.Second() != current_time {
-			if now.Second() == pair.position {
-				num = pair.position
-				letter = pair.character
-			} else if int(now.Second()/10) == pair.position {
-				num = pair.position
-				letter = pair.character
-			}
+	if now.Second()%10 != 0 {
+		time.Sleep(time.Second * 1)
+	} else {
+		totalSec := (now.Minute() * 60) + now.Second()
+		if totalSec <= 180 {
+			tSlot := totalSec / 10
+			m.position = tSlot
+		} else {
+			clean_time := totalSec % 180
+			tSlot := clean_time / 10
+			m.position = tSlot
 		}
 	}
-	return num, letter
+	return m
 }
-*/
