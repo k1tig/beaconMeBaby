@@ -17,7 +17,26 @@ import (
 //var num int
 //var letter string
 
+type responseMsg struct{}
+
+func listenForActivity(m model, sub chan struct{}) tea.Cmd {
+	return func() tea.Msg {
+		for {
+			m.getPosition()
+			time.Sleep(time.Millisecond * 100) // nolint:gosec
+			sub <- struct{}{}
+		}
+	}
+}
+
+func waitForActivity(sub chan struct{}) tea.Cmd {
+	return func() tea.Msg {
+		return responseMsg(<-sub)
+	}
+}
+
 type model struct {
+	sub        chan struct{}
 	keys       keyMap
 	help       help.Model
 	inputStyle lipgloss.Style
@@ -27,10 +46,6 @@ type model struct {
 	station    stations
 }
 
-//	type name struct {
-//		position  int
-//		character string
-//	}
 type stations struct {
 	location string
 	callsign string
@@ -92,13 +107,17 @@ var keys = keyMap{
 
 func newModel() model {
 	return model{
+		sub:        make(chan struct{}),
 		keys:       keys,
 		help:       help.New(),
 		inputStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("ff75b7")),
 	}
 }
 func (m model) Init() tea.Cmd {
-	return nil
+	return tea.Batch(
+		listenForActivity(m, m.sub), // generate activity
+		waitForActivity(m.sub),      // wait for activity
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -125,13 +144,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	//This needs to be done right so that there is a constant running even that sends a message when changed.
 
-	m.getPosition()
-	for _, beacon := range beacons {
-		if m.position == beacon.id {
-			m.station = beacon
-		}
-	}
-
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		// If we set a width on the help menu it can gracefully truncate
@@ -139,9 +151,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.help.Width = msg.Width
 
 	case tea.KeyMsg:
+
 		switch {
 		case key.Matches(msg, m.keys.Twenty):
 			m.lastKey = "20 meters"
+			for _, beacon := range beacons {
+				if m.position == beacon.id {
+					m.station = beacon
+				}
+			}
+
 		case key.Matches(msg, m.keys.Seventeen):
 			m.lastKey = "17 meters"
 		case key.Matches(msg, m.keys.Fifteen):
@@ -156,9 +175,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		}
+	case responseMsg:
+		return m, waitForActivity(m.sub)
+
 	}
 
-	return m, nil
+	return m, m.getPosition
 }
 
 func (m model) View() string {
@@ -176,12 +198,13 @@ func (m model) View() string {
 
 	helpView := m.help.View(m.keys)
 	height := 8 - strings.Count(status, "\n") - strings.Count(helpView, "\n")
-	currentStation := m.station
-	return "\n" + status + "\n" + currentStation.callsign + strings.Repeat("\n", height) + helpView
+	callsign := m.station.callsign
+	return "\n" + status + "\n" + callsign + strings.Repeat("\n", height) + helpView
 }
 
 // Main Function
 func main() {
+
 	if os.Getenv("HELP_DEBUG") != "" {
 		f, err := tea.LogToFile("debug.log", "help")
 		if err != nil {
@@ -197,7 +220,7 @@ func main() {
 	}
 }
 
-func (m model) getPosition() tea.Model {
+func (m model) getPosition() tea.Msg {
 	now := time.Now()
 
 	if now.Second()%10 != 0 {
