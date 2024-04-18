@@ -2,6 +2,8 @@ package main
 
 // A simple program that counts down from 5 and then exits.
 
+// https://github.com/charmbracelet/bubbletea/blob/master/examples/realtime/main.go
+
 import (
 	"fmt"
 	"os"
