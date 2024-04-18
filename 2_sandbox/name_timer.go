@@ -28,17 +28,17 @@ type model struct {
 	lastKey    string
 	quitting   bool
 	position   int
+	station    stations
 	//	station    stations
 }
 
-/*
-	type stations struct {
-		location string
-		callsign string
-		id       int
-		activte  bool
-	}
-*/
+type stations struct {
+	location string
+	callsign string
+	id       int
+	activte  bool
+}
+
 type keyMap struct {
 	Twenty    key.Binding
 	Seventeen key.Binding
@@ -107,7 +107,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	/*beacons := []stations{
+	beacons := []stations{
 		{"United Nations", "4U1UN", 1, true},
 		{"Canada", "VE8AT", 2, true},
 		{"United States", "W6WX", 3, true},
@@ -127,7 +127,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		{"Peru", "OA4B", 17, true},
 		{"Venezuela", "YV5B", 18, true},
 	}
-	*/
+
 	//This needs to be done right so that there is a constant running even that sends a message when changed.
 
 	switch msg := msg.(type) {
@@ -159,9 +159,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a := getPosition()
 		if a != nil {
 			m.position = a.(int)
+			for _, station := range beacons {
+				if m.position == station.id {
+					m.station = station
+
+				}
+			}
+
 		}
 		return m, waitForActivity(m.sub)
-
 	default:
 		return m, nil
 	}
@@ -174,7 +180,7 @@ type responseMsg struct{}
 func listenForActivity(sub chan struct{}) tea.Cmd {
 	return func() tea.Msg {
 		for {
-			time.Sleep(time.Millisecond * 500) // nolint:gosec
+			time.Sleep(time.Millisecond * 200) // nolint:gosec
 			sub <- struct{}{}
 		}
 	}
@@ -202,8 +208,8 @@ func (m model) View() string {
 	}
 	helpView := m.help.View(m.keys)
 	height := 8 - strings.Count(status, "\n") - strings.Count(helpView, "\n")
-	//callsign := m.station.callsign
-	return "\n" + status + "\n" + pos + strings.Repeat("\n", height) + helpView
+	callsign := m.station.callsign
+	return "\n" + status + "\n" + pos + " " + callsign + strings.Repeat("\n", height) + helpView
 }
 
 // Main Function
