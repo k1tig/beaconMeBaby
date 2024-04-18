@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,24 +20,6 @@ import (
 //var num int
 //var letter string
 
-type responseMsg struct{}
-
-func listenForActivity(m model, sub chan struct{}) tea.Cmd {
-	return func() tea.Msg {
-		for {
-			m.getPosition()
-			time.Sleep(time.Millisecond * 100) // nolint:gosec
-			sub <- struct{}{}
-		}
-	}
-}
-
-func waitForActivity(sub chan struct{}) tea.Cmd {
-	return func() tea.Msg {
-		return responseMsg(<-sub)
-	}
-}
-
 type model struct {
 	sub        chan struct{}
 	keys       keyMap
@@ -45,16 +28,17 @@ type model struct {
 	lastKey    string
 	quitting   bool
 	position   int
-	station    stations
+	//	station    stations
 }
 
-type stations struct {
-	location string
-	callsign string
-	id       int
-	activte  bool
-}
-
+/*
+	type stations struct {
+		location string
+		callsign string
+		id       int
+		activte  bool
+	}
+*/
 type keyMap struct {
 	Twenty    key.Binding
 	Seventeen key.Binding
@@ -117,13 +101,13 @@ func newModel() model {
 }
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
-		listenForActivity(m, m.sub), // generate activity
-		waitForActivity(m.sub),      // wait for activity
+		listenForActivity(m.sub), // generate activity
+		waitForActivity(m.sub),   // wait for activity
 	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	beacons := []stations{
+	/*beacons := []stations{
 		{"United Nations", "4U1UN", 1, true},
 		{"Canada", "VE8AT", 2, true},
 		{"United States", "W6WX", 3, true},
@@ -143,7 +127,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		{"Peru", "OA4B", 17, true},
 		{"Venezuela", "YV5B", 18, true},
 	}
-
+	*/
 	//This needs to be done right so that there is a constant running even that sends a message when changed.
 
 	switch msg := msg.(type) {
@@ -157,12 +141,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keys.Twenty):
 			m.lastKey = "20 meters"
-			for _, beacon := range beacons {
-				if m.position == beacon.id {
-					m.station = beacon
-				}
-			}
-
 		case key.Matches(msg, m.keys.Seventeen):
 			m.lastKey = "17 meters"
 		case key.Matches(msg, m.keys.Fifteen):
@@ -178,11 +156,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case responseMsg:
+		a := getPosition()
+		if a != nil {
+			m.position = a.(int)
+		}
 		return m, waitForActivity(m.sub)
 
+	default:
+		return m, nil
 	}
 
-	return m, m.getPosition
+	return m, nil
+}
+
+type responseMsg struct{}
+
+func listenForActivity(sub chan struct{}) tea.Cmd {
+	return func() tea.Msg {
+		for {
+			time.Sleep(time.Millisecond * 500) // nolint:gosec
+			sub <- struct{}{}
+		}
+	}
+}
+
+func waitForActivity(sub chan struct{}) tea.Cmd {
+	return func() tea.Msg {
+		return responseMsg(<-sub)
+	}
 }
 
 func (m model) View() string {
@@ -191,17 +192,18 @@ func (m model) View() string {
 	}
 
 	var status string
-
+	var pos string
 	if m.lastKey == "" {
 		status = "Selects a Band"
 	} else {
 		status = "Current station selected: " + m.inputStyle.Render(m.lastKey)
+		i := m.position
+		pos = strconv.Itoa(i)
 	}
-
 	helpView := m.help.View(m.keys)
 	height := 8 - strings.Count(status, "\n") - strings.Count(helpView, "\n")
-	callsign := m.station.callsign
-	return "\n" + status + "\n" + callsign + strings.Repeat("\n", height) + helpView
+	//callsign := m.station.callsign
+	return "\n" + status + "\n" + pos + strings.Repeat("\n", height) + helpView
 }
 
 // Main Function
@@ -222,21 +224,18 @@ func main() {
 	}
 }
 
-func (m model) getPosition() tea.Msg {
+func getPosition() tea.Msg {
 	now := time.Now()
-
-	if now.Second()%10 != 0 {
-		time.Sleep(time.Second * 1)
-	} else {
+	if now.Second()%10 == 0 {
 		totalSec := (now.Minute() * 60) + now.Second()
 		if totalSec <= 180 {
 			tSlot := totalSec / 10
-			m.position = tSlot
+			return tSlot
 		} else {
 			clean_time := totalSec % 180
 			tSlot := clean_time / 10
-			m.position = tSlot
+			return tSlot
 		}
 	}
-	return m
+	return nil
 }
