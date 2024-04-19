@@ -1,9 +1,7 @@
 package main
 
 // A simple program that counts down from 5 and then exits.
-
 // https://github.com/charmbracelet/bubbletea/blob/master/examples/realtime/main.go
-
 import (
 	"fmt"
 	"os"
@@ -17,17 +15,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-//var num int
-//var letter string
-
 type model struct {
 	sub        chan struct{}
 	keys       keyMap
 	help       help.Model
 	inputStyle lipgloss.Style
+	itemStyle  lipgloss.Style
 	lastKey    string
 	quitting   bool
 	position   int
+	shift      int
 	station    stations
 	//	station    stations
 }
@@ -55,7 +52,7 @@ func (k keyMap) ShortHelp() []key.Binding {
 
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Twelve, k.Seventeen, k.Fifteen, k.Twelve, k.Ten}, // first column
+		{k.Twenty, k.Seventeen, k.Fifteen, k.Twelve, k.Ten}, // first column
 		{k.Help, k.Quit}, // second column
 	}
 }
@@ -96,7 +93,8 @@ func newModel() model {
 		sub:        make(chan struct{}),
 		keys:       keys,
 		help:       help.New(),
-		inputStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("ff75b7")),
+		inputStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
+		itemStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
 	}
 }
 func (m model) Init() tea.Cmd {
@@ -108,28 +106,30 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	beacons := []stations{
-		{"United Nations", "4U1UN", 1, true},
-		{"Canada", "VE8AT", 2, true},
-		{"United States", "W6WX", 3, true},
-		{"Hawaii", "KH6RS", 4, true},
-		{"New Zealand", "ZL6B", 5, true},
-		{"Australia", "VK6RBP", 6, true},
-		{"Japan", "JA2IGY", 7, true},
-		{"Russia", "RR9O", 8, true},
-		{"Hong Kong", "VR2B", 9, true},
-		{"Sri Lanka", "4S7B", 10, true},
-		{"South Africa", "ZS6DN", 11, true},
-		{"Kenya", "5Z4B", 12, true},
-		{"Israel", "4X6TU", 13, true},
-		{"Finland", "OH2B", 14, true},
-		{"Madeira", "CS3B", 15, true},
-		{"Argentina", "LU4AA", 16, true},
-		{"Peru", "OA4B", 17, true},
-		{"Venezuela", "YV5B", 18, true},
+		{"Madeira", "CS3B", -4, true},
+		{"Argentina", "LU4AA", -3, true},
+		{"Peru", "OA4B", -2, true},
+		{"Venezuela", "YV5B", -1, true},
+		{"United Nations", "4U1UN", 0, true},
+		{"Canada", "VE8AT", 1, true},
+		{"United States", "W6WX", 2, true},
+		{"Hawaii", "KH6RS", 3, true},
+		{"New Zealand", "ZL6B", 4, true},
+		{"Australia", "VK6RBP", 5, true},
+		{"Japan", "JA2IGY", 6, true},
+		{"Russia", "RR9O", 7, true},
+		{"Hong Kong", "VR2B", 8, true},
+		{"Sri Lanka", "4S7B", 9, true},
+		{"South Africa", "ZS6DN", 10, true},
+		{"Kenya", "5Z4B", 11, true},
+		{"Israel", "4X6TU", 12, true},
+		{"Finland", "OH2B", 13, true},
+		{"Madeira", "CS3B", 14, true},
+		{"Argentina", "LU4AA", 15, true},
+		{"Peru", "OA4B", 16, true},
+		{"Venezuela", "YV5B", 17, true},
 	}
-
 	//This needs to be done right so that there is a constant running even that sends a message when changed.
-
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		// If we set a width on the help menu it can gracefully truncate
@@ -137,18 +137,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.help.Width = msg.Width
 
 	case tea.KeyMsg:
-
 		switch {
 		case key.Matches(msg, m.keys.Twenty):
 			m.lastKey = "20 meters"
+			m.shift = 0
 		case key.Matches(msg, m.keys.Seventeen):
 			m.lastKey = "17 meters"
+			m.shift = -1
 		case key.Matches(msg, m.keys.Fifteen):
 			m.lastKey = "15 meters"
+			m.shift = -2
 		case key.Matches(msg, m.keys.Twelve):
 			m.lastKey = "12 meters"
+			m.shift = -3
 		case key.Matches(msg, m.keys.Ten):
 			m.lastKey = "10 meters"
+			m.shift = -4
 		case key.Matches(msg, m.keys.Help):
 			m.help.ShowAll = !m.help.ShowAll
 		case key.Matches(msg, m.keys.Quit):
@@ -156,22 +160,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case responseMsg:
-		a := getPosition()
-		if a != nil {
+
+		a := m.getPosition()
+		if a != nil && a.(int) != m.position {
 			m.position = a.(int)
 			for _, station := range beacons {
-				if m.position == station.id {
+				if m.position+m.shift == station.id {
 					m.station = station
-
 				}
 			}
 
-		}
+		} /*else {
+			a := startPosition()
+			m.position = a
+			for _, station := range beacons {
+				if m.position+m.shift == station.id {
+					m.station = station
+				}
+			}
+		}*/
 		return m, waitForActivity(m.sub)
-	default:
-		return m, nil
-	}
 
+	}
 	return m, nil
 }
 
@@ -180,7 +190,7 @@ type responseMsg struct{}
 func listenForActivity(sub chan struct{}) tea.Cmd {
 	return func() tea.Msg {
 		for {
-			time.Sleep(time.Millisecond * 200) // nolint:gosec
+			//time.Sleep(time.Millisecond * 100) // nolint:gosec
 			sub <- struct{}{}
 		}
 	}
@@ -193,23 +203,24 @@ func waitForActivity(sub chan struct{}) tea.Cmd {
 }
 
 func (m model) View() string {
+	var status string
+	var pos string
+
 	if m.quitting {
 		return "Bye!\n"
 	}
-
-	var status string
-	var pos string
 	if m.lastKey == "" {
-		status = "Selects a Band"
+		status = "Selects a Band: "
 	} else {
-		status = "Current station selected: " + m.inputStyle.Render(m.lastKey)
 		i := m.position
-		pos = strconv.Itoa(i)
+		pos = strconv.Itoa(i + 1)
+		callsign := m.inputStyle.Render("Station:  ") + m.itemStyle.Render(pos+") "+m.station.callsign)
+		location := m.inputStyle.Render("Location: ") + m.itemStyle.Render(m.station.location)
+		status = m.inputStyle.Render("Current station selected: ") + m.inputStyle.Render(m.lastKey) + "\n\n" + callsign + "\n" + location
 	}
 	helpView := m.help.View(m.keys)
 	height := 8 - strings.Count(status, "\n") - strings.Count(helpView, "\n")
-	callsign := m.station.callsign
-	return "\n" + status + "\n" + pos + " " + callsign + strings.Repeat("\n", height) + helpView
+	return "\n" + status + strings.Repeat("\n", height) + helpView
 }
 
 // Main Function
@@ -230,7 +241,7 @@ func main() {
 	}
 }
 
-func getPosition() tea.Msg {
+func (m model) getPosition() tea.Msg {
 	now := time.Now()
 	if now.Second()%10 == 0 {
 		totalSec := (now.Minute() * 60) + now.Second()
@@ -245,3 +256,18 @@ func getPosition() tea.Msg {
 	}
 	return nil
 }
+
+/*
+func startPosition() int {
+	now := time.Now()
+	pos := now.Second() / 10
+	if pos <= 18 {
+		tSlot := pos
+		return tSlot
+	} else {
+		pos := now.Second() % 180
+		tSlot := pos / 10
+		return tSlot
+	}
+}
+*/
