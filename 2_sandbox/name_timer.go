@@ -161,16 +161,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case responseMsg:
 
-		a := m.getPosition()
-		if a != nil && a.(int) != m.position {
+		a := getPosition()
+		if a != nil {
 			m.position = a.(int)
 			for _, station := range beacons {
 				if m.position+m.shift == station.id {
 					m.station = station
 				}
 			}
-
-		} /*else {
+			return m, waitForActivity(m.sub)
+		} else {
 			a := startPosition()
 			m.position = a
 			for _, station := range beacons {
@@ -178,9 +178,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.station = station
 				}
 			}
-		}*/
-		return m, waitForActivity(m.sub)
-
+			return m, waitForActivity(m.sub)
+		}
 	}
 	return m, nil
 }
@@ -190,7 +189,7 @@ type responseMsg struct{}
 func listenForActivity(sub chan struct{}) tea.Cmd {
 	return func() tea.Msg {
 		for {
-			//time.Sleep(time.Millisecond * 100) // nolint:gosec
+			time.Sleep(time.Millisecond * 100) // nolint:gosec
 			sub <- struct{}{}
 		}
 	}
@@ -241,7 +240,7 @@ func main() {
 	}
 }
 
-func (m model) getPosition() tea.Msg {
+func getPosition() tea.Msg {
 	now := time.Now()
 	if now.Second()%10 == 0 {
 		totalSec := (now.Minute() * 60) + now.Second()
@@ -257,7 +256,6 @@ func (m model) getPosition() tea.Msg {
 	return nil
 }
 
-/*
 func startPosition() int {
 	now := time.Now()
 	pos := now.Second() / 10
@@ -270,4 +268,3 @@ func startPosition() int {
 		return tSlot
 	}
 }
-*/
