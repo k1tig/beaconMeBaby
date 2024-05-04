@@ -139,7 +139,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Twenty):
-			m.lastKey = "20 meters"
+			m.lastKey = "20 meters (14.000 MHz)"
 			m.shift = 0
 			for _, station := range beacons {
 				if m.position+m.shift == station.id {
@@ -147,7 +147,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case key.Matches(msg, m.keys.Seventeen):
-			m.lastKey = "17 meters"
+			m.lastKey = "17 meters (18.110 MHz)"
 			m.shift = -1
 			for _, station := range beacons {
 				if m.position+m.shift == station.id {
@@ -155,7 +155,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case key.Matches(msg, m.keys.Fifteen):
-			m.lastKey = "15 meters"
+			m.lastKey = "15 meters (21.150 MHz)"
 			m.shift = -2
 			for _, station := range beacons {
 				if m.position+m.shift == station.id {
@@ -163,7 +163,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case key.Matches(msg, m.keys.Twelve):
-			m.lastKey = "12 meters"
+			m.lastKey = "12 meters (24.930 MHz)"
 			m.shift = -3
 			for _, station := range beacons {
 				if m.position+m.shift == station.id {
@@ -171,7 +171,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case key.Matches(msg, m.keys.Ten):
-			m.lastKey = "10 meters"
+			m.lastKey = "10 meters (28.200 MHz)"
 			m.shift = -4
 			for _, station := range beacons {
 				if m.position+m.shift == station.id {
