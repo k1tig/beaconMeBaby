@@ -257,24 +257,6 @@ func main() {
 	}
 }
 
-/*
-	func getPosition() tea.Msg {
-		now := time.Now()
-		if now.Second()%10 == 0 {
-			totalSec := (now.Minute() * 60) + now.Second()
-			if totalSec <= 180 {
-				tSlot := totalSec / 10
-				return tSlot
-			} else {
-				clean_time := totalSec % 180
-				tSlot := clean_time / 10
-				return tSlot
-			}
-		}
-		return nil
-	}
-*/
-
 func startPosition() tea.Msg {
 	now := time.Now()
 	totalSec := (now.Minute() * 60) + now.Second()
@@ -282,7 +264,7 @@ func startPosition() tea.Msg {
 		tSlot := totalSec / 10
 		return tSlot
 	} else {
-		clean_time := now.Second() % 180
+		clean_time := totalSec % 180
 		tSlot := clean_time / 10
 		return tSlot
 	}

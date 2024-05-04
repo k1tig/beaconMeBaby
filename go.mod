@@ -1,4 +1,4 @@
-module name_timer
+module beaconmebaby
 
 go 1.22.1
 
