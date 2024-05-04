@@ -186,17 +186,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, waitForActivity(m.sub)
 	case responseMsg:
-		a := startPosition()
 
-		if a != nil {
-			m.position = a.(int)
-			for _, station := range beacons {
-				if m.position+m.shift == station.id {
-					m.station = station
+		a := startPosition()
+		if m.position != a.(int) {
+			//now := time.Now()
+			//fmt.Println(now)
+			if a != nil {
+				m.position = a.(int)
+				for _, station := range beacons {
+					if m.position+m.shift == station.id {
+						m.station = station
+					}
 				}
+				return m, waitForActivity(m.sub)
 			}
-			return m, waitForActivity(m.sub)
 		}
+
 	}
 	return m, waitForActivity(m.sub)
 }
