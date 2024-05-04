@@ -141,27 +141,53 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Twenty):
 			m.lastKey = "20 meters"
 			m.shift = 0
+			for _, station := range beacons {
+				if m.position+m.shift == station.id {
+					m.station = station
+				}
+			}
 		case key.Matches(msg, m.keys.Seventeen):
 			m.lastKey = "17 meters"
 			m.shift = -1
+			for _, station := range beacons {
+				if m.position+m.shift == station.id {
+					m.station = station
+				}
+			}
 		case key.Matches(msg, m.keys.Fifteen):
 			m.lastKey = "15 meters"
 			m.shift = -2
+			for _, station := range beacons {
+				if m.position+m.shift == station.id {
+					m.station = station
+				}
+			}
 		case key.Matches(msg, m.keys.Twelve):
 			m.lastKey = "12 meters"
 			m.shift = -3
+			for _, station := range beacons {
+				if m.position+m.shift == station.id {
+					m.station = station
+				}
+			}
 		case key.Matches(msg, m.keys.Ten):
 			m.lastKey = "10 meters"
 			m.shift = -4
+			for _, station := range beacons {
+				if m.position+m.shift == station.id {
+					m.station = station
+				}
+			}
 		case key.Matches(msg, m.keys.Help):
 			m.help.ShowAll = !m.help.ShowAll
 		case key.Matches(msg, m.keys.Quit):
 			m.quitting = true
 			return m, tea.Quit
 		}
+		return m, waitForActivity(m.sub)
 	case responseMsg:
+		a := startPosition()
 
-		a := getPosition()
 		if a != nil {
 			m.position = a.(int)
 			for _, station := range beacons {
@@ -170,18 +196,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return m, waitForActivity(m.sub)
-		} else {
-			a := startPosition()
-			m.position = a
-			for _, station := range beacons {
-				if m.position+m.shift == station.id {
-					m.station = station
-				}
-			}
-			return m, waitForActivity(m.sub)
 		}
 	}
-	return m, nil
+	return m, waitForActivity(m.sub)
 }
 
 type responseMsg struct{}
@@ -189,7 +206,7 @@ type responseMsg struct{}
 func listenForActivity(sub chan struct{}) tea.Cmd {
 	return func() tea.Msg {
 		for {
-			time.Sleep(time.Millisecond * 100) // nolint:gosec
+			//time.Sleep(time.Millisecond * 100) // nolint:gosec
 			sub <- struct{}{}
 		}
 	}
@@ -219,7 +236,7 @@ func (m model) View() string {
 	}
 	helpView := m.help.View(m.keys)
 	height := 8 - strings.Count(status, "\n") - strings.Count(helpView, "\n")
-	return "\n" + status + strings.Repeat("\n", height) + helpView
+	return "\n" + status + "\n" + strings.Repeat("\n", height) + helpView
 }
 
 // Main Function
@@ -240,31 +257,33 @@ func main() {
 	}
 }
 
-func getPosition() tea.Msg {
-	now := time.Now()
-	if now.Second()%10 == 0 {
-		totalSec := (now.Minute() * 60) + now.Second()
-		if totalSec <= 180 {
-			tSlot := totalSec / 10
-			return tSlot
-		} else {
-			clean_time := totalSec % 180
-			tSlot := clean_time / 10
-			return tSlot
+/*
+	func getPosition() tea.Msg {
+		now := time.Now()
+		if now.Second()%10 == 0 {
+			totalSec := (now.Minute() * 60) + now.Second()
+			if totalSec <= 180 {
+				tSlot := totalSec / 10
+				return tSlot
+			} else {
+				clean_time := totalSec % 180
+				tSlot := clean_time / 10
+				return tSlot
+			}
 		}
+		return nil
 	}
-	return nil
-}
+*/
 
-func startPosition() int {
+func startPosition() tea.Msg {
 	now := time.Now()
-	pos := now.Second() / 10
-	if pos <= 18 {
-		tSlot := pos
+	totalSec := (now.Minute() * 60) + now.Second()
+	if totalSec <= 180 {
+		tSlot := totalSec / 10
 		return tSlot
 	} else {
-		pos := now.Second() % 180
-		tSlot := pos / 10
+		clean_time := now.Second() % 180
+		tSlot := clean_time / 10
 		return tSlot
 	}
 }
