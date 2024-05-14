@@ -139,7 +139,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Twenty):
-			m.lastKey = "20 meters (14.000 MHz)"
+			m.lastKey = "20 meters (14.100 MHz)"
 			m.shift = 0
 			for _, station := range beacons {
 				if m.position+m.shift == station.id {
@@ -189,15 +189,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		a := startPosition()
 		if m.position != a.(int) {
-			//now := time.Now()
-			//fmt.Println(now)
 			if a != nil {
 				m.position = a.(int)
 				for _, station := range beacons {
 					if m.position+m.shift == station.id {
 						m.station = station
+
 					}
 				}
+				//time.Sleep(time.Millisecond * 1000)
 				return m, waitForActivity(m.sub)
 			}
 		}
