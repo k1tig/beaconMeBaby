@@ -11,12 +11,19 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+var staging float32
+
 const prestage = 10
 const fullstage = 7
 const raceyellow = 1.3
 const racegreen = .4
 
 const runprogram = true
+
+func racetime(stage int) {
+	p1 := time.Duration(rand.Intn(stage+1) + 1)
+	time.Sleep(p1 * time.Second)
+}
 
 type model struct {
 	timer    timer.Model
@@ -27,16 +34,17 @@ type model struct {
 }
 
 type raceStatus struct {
-	current    bool
-	foulOn     bool
-	greenlight bool
-	endrace    bool
+	begin    bool
+	preStage bool
+	stage    bool
+	yellow   bool
+	green    bool
+	end      bool
 }
 
 type keymap struct {
 	start key.Binding
 	stop  key.Binding
-	reset key.Binding
 	quit  key.Binding
 }
 
@@ -67,9 +75,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keymap.quit):
 			m.quitting = true
 			return m, tea.Quit
-		case key.Matches(msg, m.keymap.reset):
-			m.timer.Timeout = timeout
-		case key.Matches(msg, m.keymap.start, m.keymap.stop):
+
+		case key.Matches(msg, m.keymap.start):
+			switch {
+			case m.rStatus.begin != true:
+				m.rStatus.begin = true
+				racetime(prestage)
+				return m, nil
+
+			case m.rStatus.preStage != true:
+				m.rStatus.preStage = true
+				racetime(fullstage)
+				return m, nil
+
+			case m.rStatus.yellow != true:
+				m.rStatus.yellow = true
+				time.Sleep((raceyellow * 1000) * time.Millisecond)
+				return m, nil
+
+			case m.rStatus.green != true:
+				m.rStatus.green = true
+				time.Sleep((racegreen * 1000) * time.Millisecond)
+				return m, nil // Send CMD to start timer. Above Code shouldnt be bound to start key.
+
+			}
 			return m, m.timer.Toggle()
 		}
 	}
@@ -81,7 +110,7 @@ func (m model) helpView() string {
 	return "\n" + m.help.ShortHelpView([]key.Binding{
 		m.keymap.start,
 		m.keymap.stop,
-		m.keymap.reset,
+
 		m.keymap.quit,
 	})
 }
