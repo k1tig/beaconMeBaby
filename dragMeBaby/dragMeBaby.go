@@ -53,7 +53,6 @@ func waitForActivity(sub chan struct{}) tea.Cmd {
 }
 
 type model struct {
-	levels    int
 	sub       chan struct{} // where we'll receive activity notifications
 	responses int           // how many responses we've received
 	spinner   spinner.Model
@@ -63,6 +62,7 @@ type model struct {
 }
 
 type stageTimes struct {
+	current   int
 	beforestg int
 	prestg    int
 	stg       int
@@ -78,14 +78,31 @@ func (m model) Init() tea.Cmd {
 	)
 }
 
+var stg1 int = 6
+var stg2 int = 4
+var stg3 int = 4
+
 // For staging a sequence of commands need to be sent for changing the lights. | before-stage (fault) pre-stage (fault) | staging
 // (fault) | Yellow lights (fault) | Green Lights (start reaction timer) |
 
 func (m model) staging() {
-	m.stage.beforestg = rand.Intn(5-1) + 1
-	m.stage.prestg = rand.Intn(5-1) + 1
-	m.stage.stg = rand.Intn(3-1) + 1
+	m.stage.beforestg = rand.Intn(stg1-4) + 4
+	m.stage.prestg = rand.Intn(stg2-1) + 1
+	m.stage.stg = rand.Intn(stg3-1) + 1
 	m.stage.green = true
+	switch {
+	case m.stage.current == 0:
+		time.Sleep(time.Second * time.Duration(m.stage.beforestg))
+		return
+	case m.stage.current == 1:
+		time.Sleep(time.Second * time.Duration(m.stage.prestg))
+		return
+	case m.stage.current == 2:
+		time.Sleep(time.Second * time.Duration(m.stage.stg))
+		return
+	case m.stage.current == 3:
+		time.Sleep(time.Millisecond * time.Duration(m.stage.yellow))
+	}
 
 }
 
@@ -98,15 +115,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Action): // location for action input / multi button
 			switch {
-			case m.levels == 0:
+			case m.stage.current == 0:
 				m.staging()
-				m.levels++
-			case m.levels == 1: // prestage
-				m.levels++
-			case m.levels == 2: // stage
-				m.levels++
-			case m.levels > -3:
-				m.levels += 2
+				m.stage.current++
+			case m.stage.current == 1: // prestage
+				m.stage.current++
+			case m.stage.current == 2: // stage
+				m.stage.current++
+			case m.stage.current == 3:
+				// start timer
+				m.stage.current = 4
+			case m.stage.current == 4:
+				//stop timer and print time
+
 			}
 
 			return m, nil
@@ -126,7 +147,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	s := fmt.Sprintf("\n %s Events received: %d\n\n Press any key to exit\n\n Level of stage: %d", m.spinner.View(), m.responses, m.levels)
+	s := fmt.Sprintf("\n %s Events received: %d\n\n Press any key to exit\n\n Level of stage: %d", m.spinner.View(), m.responses, m.stage.current)
 	if m.quitting {
 		s += "\n"
 	}
@@ -138,8 +159,9 @@ func main() {
 		sub:     make(chan struct{}),
 		spinner: spinner.New(),
 		keys:    keys,
-		levels:  1,
-		stage:   stageTimes{yellow: .400},
+		stage: stageTimes{yellow: .400,
+			current: 0,
+		},
 	})
 
 	if _, err := p.Run(); err != nil {
