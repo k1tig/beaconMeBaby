@@ -78,7 +78,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Action): // location for action input / multi button
 			switch {
-			case m.levels == 0:
+			case m.levels == 0: // make channel to listen for flase start
 				//time.Sleep(time.Second * 4)
 				m.levels++
 			case m.levels == 1: // prestage
