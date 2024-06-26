@@ -59,6 +59,15 @@ type model struct {
 	spinner   spinner.Model
 	keys      keyMap
 	quitting  bool
+	stage     stageTimes
+}
+
+type stageTimes struct {
+	beforestg int
+	prestg    int
+	stg       int
+	yellow    float32
+	green     bool
 }
 
 func (m model) Init() tea.Cmd {
@@ -67,6 +76,17 @@ func (m model) Init() tea.Cmd {
 		listenForActivity(m.sub), // generate activity
 		waitForActivity(m.sub),   // wait for activity
 	)
+}
+
+// For staging a sequence of commands need to be sent for changing the lights. | before-stage (fault) pre-stage (fault) | staging
+// (fault) | Yellow lights (fault) | Green Lights (start reaction timer) |
+
+func (m model) staging() {
+	m.stage.beforestg = rand.Intn(5-1) + 1
+	m.stage.prestg = rand.Intn(5-1) + 1
+	m.stage.stg = rand.Intn(3-1) + 1
+	m.stage.green = true
+
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -78,8 +98,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Action): // location for action input / multi button
 			switch {
-			case m.levels == 0: // make channel to listen for flase start
-				//time.Sleep(time.Second * 4)
+			case m.levels == 0:
+				m.staging()
 				m.levels++
 			case m.levels == 1: // prestage
 				m.levels++
@@ -91,7 +111,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, nil
 		}
-
+		// begin - wait, prestage - wait, stage- wait, yellow- wait, green
 	case responseMsg:
 		m.responses++                    // record external activity
 		return m, waitForActivity(m.sub) // wait for next event
@@ -119,6 +139,7 @@ func main() {
 		spinner: spinner.New(),
 		keys:    keys,
 		levels:  1,
+		stage:   stageTimes{yellow: .400},
 	})
 
 	if _, err := p.Run(); err != nil {
