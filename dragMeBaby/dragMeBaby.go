@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -23,6 +22,10 @@ type keyMap struct {
 	Quit   key.Binding
 }
 
+var stg1 int = 6
+var stg2 int = 4
+var stg3 int = 4
+
 var keys = keyMap{
 	Action: key.NewBinding(
 		key.WithKeys("g"),
@@ -32,15 +35,64 @@ var keys = keyMap{
 	),
 }
 
-// Simulate a process that sends events at an irregular interval in real time.
-// In this case, we'll send events on the channel at a random interval between
-// 100 to 1000 milliseconds. As a command, Bubble Tea will run this
-// asynchronously.
-func listenForActivity(sub chan struct{}) tea.Cmd {
+type model struct {
+	stg       chan struct{}
+	sub       chan struct{} // where we'll receive activity notifications
+	responses int           // how many responses we've received
+	keys      keyMap
+	quitting  bool
+	stage     stageTimes
+}
+type stageTimes struct {
+	current   int
+	beforestg int
+	prestg    int
+	stg       int
+	yellow    float32
+	green     bool
+}
+
+func (m model) listenForActivity(sub chan struct{}) tea.Cmd {
 	return func() tea.Msg {
+		m.stage.beforestg = rand.Intn(stg1-4) + 4
+		m.stage.prestg = rand.Intn(stg2-1) + 1
+		m.stage.stg = rand.Intn(stg3-1) + 1
+		m.stage.green = true
 		for {
-			time.Sleep(time.Millisecond * time.Duration(rand.Int63n(900)+100)) // nolint:gosec
-			sub <- struct{}{}
+			switch {
+			case m.stage.current == 0:
+				go func() {
+					time.Sleep(time.Millisecond * time.Duration(rand.Int63n(900)+100)) // nolint:gosec
+					m.stage.current++
+					sub <- struct{}{}
+				}()
+
+			case m.stage.current == 1:
+				go func() {
+					time.Sleep(time.Second * time.Duration(m.stage.beforestg)) // nolint:gosec
+					m.stage.current++
+					sub <- struct{}{}
+				}()
+			case m.stage.current == 2:
+				go func() {
+					time.Sleep(time.Second * time.Duration(m.stage.prestg)) // nolint:gosec
+					m.stage.current++
+					sub <- struct{}{}
+				}()
+			case m.stage.current == 3:
+				go func() {
+					time.Sleep(time.Second * time.Duration(m.stage.stg)) // nolint:gosec
+					m.stage.current++
+					sub <- struct{}{}
+				}()
+			case m.stage.current == 4:
+				go func() {
+					time.Sleep(time.Second * time.Duration(m.stage.stg)) // nolint:gosec
+					m.stage.current++
+					sub <- struct{}{}
+				}()
+
+			}
 		}
 	}
 }
@@ -52,59 +104,15 @@ func waitForActivity(sub chan struct{}) tea.Cmd {
 	}
 }
 
-type model struct {
-	sub       chan struct{} // where we'll receive activity notifications
-	responses int           // how many responses we've received
-	spinner   spinner.Model
-	keys      keyMap
-	quitting  bool
-	stage     stageTimes
-}
-
-type stageTimes struct {
-	current   int
-	beforestg int
-	prestg    int
-	stg       int
-	yellow    float32
-	green     bool
-}
-
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
-		m.spinner.Tick,
-		listenForActivity(m.sub), // generate activity
-		waitForActivity(m.sub),   // wait for activity
+		m.listenForActivity(m.sub), // generate activity
+		waitForActivity(m.sub),     // wait for activity
 	)
 }
 
-var stg1 int = 6
-var stg2 int = 4
-var stg3 int = 4
-
 // For staging a sequence of commands need to be sent for changing the lights. | before-stage (fault) pre-stage (fault) | staging
 // (fault) | Yellow lights (fault) | Green Lights (start reaction timer) |
-
-func (m model) staging() {
-	m.stage.beforestg = rand.Intn(stg1-4) + 4
-	m.stage.prestg = rand.Intn(stg2-1) + 1
-	m.stage.stg = rand.Intn(stg3-1) + 1
-	m.stage.green = true
-	switch {
-	case m.stage.current == 0:
-		time.Sleep(time.Second * time.Duration(m.stage.beforestg))
-		return
-	case m.stage.current == 1:
-		time.Sleep(time.Second * time.Duration(m.stage.prestg))
-		return
-	case m.stage.current == 2:
-		time.Sleep(time.Second * time.Duration(m.stage.stg))
-		return
-	case m.stage.current == 3:
-		time.Sleep(time.Millisecond * time.Duration(m.stage.yellow))
-	}
-
-}
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -116,56 +124,47 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Action): // location for action input / multi button
 			switch {
 			case m.stage.current == 0:
-				m.staging()
 				m.stage.current++
-			case m.stage.current == 1: // prestage
-				m.stage.current++
-			case m.stage.current == 2: // stage
-				m.stage.current++
-			case m.stage.current == 3:
-				// start timer
-				m.stage.current = 4
-			case m.stage.current == 4:
-				//stop timer and print time
-
 			}
-
 			return m, nil
 		}
 		// begin - wait, prestage - wait, stage- wait, yellow- wait, green
+		return m, nil
+
 	case responseMsg:
-		m.responses++                    // record external activity
+
+		switch {
+		case m.stage.current == 1:
+			m.stage.current++
+		case m.stage.current == 2:
+			m.stage.current++
+		case m.stage.current == 3:
+			m.stage.current++
+		case m.stage.current == 4:
+			m.stage.current = 0
+		} // record external activity
 		return m, waitForActivity(m.sub) // wait for next event
-	case spinner.TickMsg:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
 	default:
 		return m, nil
 	}
-	return m, nil
 }
-
 func (m model) View() string {
-	s := fmt.Sprintf("\n %s Events received: %d\n\n Press any key to exit\n\n Level of stage: %d", m.spinner.View(), m.responses, m.stage.current)
+	s := fmt.Sprintf("\n Events received: %d\n\n Press any key to exit\n\n Level of stage: %d", m.responses, m.stage.current)
 	if m.quitting {
 		s += "\n"
 	}
 	return s
 }
-
 func main() {
 	p := tea.NewProgram(model{
-		sub:     make(chan struct{}),
-		spinner: spinner.New(),
-		keys:    keys,
+		stg:  make(chan struct{}),
+		sub:  make(chan struct{}),
+		keys: keys,
 		stage: stageTimes{yellow: .400,
 			current: 0,
 		},
 	})
-
 	if _, err := p.Run(); err != nil {
-
 		fmt.Println("could not start program:", err)
 		os.Exit(1)
 	}
