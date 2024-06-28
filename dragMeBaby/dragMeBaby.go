@@ -65,6 +65,7 @@ func (m model) listenForActivity(sub chan struct{}) tea.Cmd {
 					time.Sleep(time.Millisecond * time.Duration(rand.Int63n(900)+100)) // nolint:gosec
 					m.stage.current++
 					sub <- struct{}{}
+
 				}()
 
 			case m.stage.current == 1:
@@ -115,6 +116,7 @@ func (m model) Init() tea.Cmd {
 // (fault) | Yellow lights (fault) | Green Lights (start reaction timer) |
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	//.7-1.3second stage to yellow
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
