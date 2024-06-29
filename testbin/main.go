@@ -14,7 +14,7 @@ func myProcess(stopChannel chan int) {
 }
 
 func main() {
-	stopChannel := make(chan int, 2)
+	stopChannel := make(chan int)
 	go myProcess(stopChannel)
 	stopChannel <- 1
 	time.Sleep(2 * time.Second)
