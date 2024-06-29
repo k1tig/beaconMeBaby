@@ -5,25 +5,21 @@ import (
 	"time"
 )
 
-func myProcess(stopChannel chan bool) {
+func myProcess(stopChannel chan int) {
 	for {
-		select {
-		case <-stopChannel:
-			fmt.Println("Hey! Shantanu. Thanks for stopping my goroutine :) ")
-			return
-		default:
-			fmt.Println("My Goroutine is running :( ")
-			time.Sleep(time.Second)
-		}
+		toots := <-stopChannel
+		fmt.Println("The letter", toots)
 	}
+
 }
 
 func main() {
-	stopChannel := make(chan bool)
+	stopChannel := make(chan int, 2)
 	go myProcess(stopChannel)
-	time.Sleep(3 * time.Second)
-	stopChannel <- true
-	time.Sleep(time.Second)
+	stopChannel <- 1
+	time.Sleep(2 * time.Second)
+	stopChannel <- 2
+	time.Sleep(time.Second * 2)
 
 	fmt.Println("Main Goroutine exited")
 }
