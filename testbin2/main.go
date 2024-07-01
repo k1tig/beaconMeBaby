@@ -69,7 +69,9 @@ func newModel() model {
 		help:       help.New(),
 		inputStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
 		itemStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
-		stgTimes:   stgTimelst{green: .400},
+		stgTimes:   stgTimelst{green: .400, active: false},
+		stg:        0,
+		pos:        1,
 	}
 }
 func (m model) Init() tea.Cmd {
@@ -102,16 +104,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, waitForActivity(m.sub)
 	case responseMsg:
+		switch m.stgTimes.active {
+		case m.stg != m.pos:
+			switch {
+			case m.stg == 0:
+				stgDelay(m.stgTimes.prestg)
+				m.stg++
+			case m.stg == 1:
+				stgDelay(m.stgTimes.stg)
+				m.stg++
+			case m.stg == 2:
+				stgDelay(m.stgTimes.yellow)
+				m.stg++
+			case m.stg == 3:
+				stgDelay(int(m.stgTimes.green))
+				m.stg++
+			case m.stg == 4:
+				m.stg = 0
+				m.pos = 1
+				m.stgTimes.active = false
 
-		a := startPosition()
-		if m.pos != a.(int) {
-			if a != nil {
-
-				//time.Sleep(time.Millisecond * 1000)
-				return m, waitForActivity(m.sub)
 			}
-		}
+			return m, waitForActivity(m.sub)
 
+		case m.stg == m.pos:
+			m.pos++
+
+		}
+		return m, waitForActivity(m.sub)
 	}
 	return m, waitForActivity(m.sub)
 }
@@ -126,11 +146,28 @@ func listenForActivity(sub chan struct{}) tea.Cmd {
 		}
 	}
 }
-
 func waitForActivity(sub chan struct{}) tea.Cmd {
 	return func() tea.Msg {
 		return responseMsg(<-sub)
 	}
+}
+
+func stgDelay(x int) {
+	time.Sleep(time.Second * time.Duration(x))
+}
+
+// presets for stage times on drag tree
+var stg1 = 6
+var stg2 = 3
+var stg3 = 130
+
+func (m model) setTimes() tea.Model {
+	s := m.stgTimes
+	s.prestg = rand.Intn(stg1-4) + 4
+	s.stg = rand.Intn(stg2-1) + 1
+	s.yellow = (rand.Intn(stg3-70) + 70) / 10
+	s.active = true
+	return m
 }
 
 func (m model) View() string {
@@ -167,30 +204,4 @@ func main() {
 		fmt.Printf("Could not start program :(\n%v\n", err)
 		os.Exit(1)
 	}
-}
-
-func startPosition() tea.Msg {
-	now := time.Now()
-	totalSec := (now.Minute() * 60) + now.Second()
-	if totalSec <= 180 {
-		tSlot := totalSec / 10
-		return tSlot
-	} else {
-		clean_time := totalSec % 180
-		tSlot := clean_time / 10
-		return tSlot
-	}
-}
-
-var stg1 = 6
-var stg2 = 3
-var stg3 = 130
-
-func (m model) setTimes() {
-	s := m.stgTimes
-	s.prestg = rand.Intn(stg1-4) + 4
-	s.stg = rand.Intn(stg2-1) + 1
-	s.yellow = (rand.Intn(stg3-70) + 70) / 10
-	s.active = true
-
 }
