@@ -1,152 +1,163 @@
 package main
 
-// A simple example that shows how to send activity to Bubble Tea in real-time
-// through a channel.
-
+// A simple program that counts down from 5 and then exits.
+// https://github.com/charmbracelet/bubbletea/blob/master/examples/realtime/main.go
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"time"
 
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// A message used to indicate that activity has occurred. In the real world (for
-// example, chat) this would contain actual data.
-type raceStatusMsg int
+type model struct {
+	sub      chan struct{}
+	keys     keyMap
+	help     help.Model
+	quitting bool
+	stg      int
+	stgT     times
+
+	//	station    stations
+}
+
+type times struct {
+	preStg  int
+	fullStg int
+	Yellow  float32
+	Green   float32
+}
 
 type keyMap struct {
-	Action key.Binding
+	Twenty key.Binding
 	Quit   key.Binding
 }
 
-var stg1 int = 6
-var stg2 int = 4
-var stg3 int = 4
-
 var keys = keyMap{
-	Action: key.NewBinding(
+	Twenty: key.NewBinding(
 		key.WithKeys("g"),
+		key.WithHelp("(g)", "Action"),
 	),
 	Quit: key.NewBinding(
-		key.WithKeys("q", "Q"),
+		key.WithKeys("q"),
+		key.WithHelp("(q)", "Quit"),
 	),
 }
 
-type model struct {
-	active   bool
-	stg      chan int
-	keys     keyMap
-	quitting bool
-	stage    stageTimes
-}
-type stageTimes struct {
-	current   int
-	beforestg int
-	prestg    int
-	stg       int
-	yellow    float32
-	green     bool
-}
-
-func (m model) setTimes() {
-	s := m.stage
-	s.beforestg = rand.Intn(stg1-4) + 4
-	s.prestg = rand.Intn(stg2-1) + 1
-	s.stg = rand.Intn(stg3-1) + 1
-	s.green = true
-
+func newModel() model {
+	return model{
+		sub:  make(chan struct{}),
+		keys: keys,
+		help: help.New(),
+		stg:  0,
+		stgT: times{preStg: 4, fullStg: 3, Yellow: 1.2, Green: .400},
+	}
 }
 func (m model) Init() tea.Cmd {
-	return nil
+	return tea.Batch(
+		listenForActivity(m.sub), // generate activity
+		waitForActivity(m.sub),   // wait for activity
+
+	)
 }
 
-func (m model) raceStatus(stg chan int) tea.Cmd {
+type responseMsg struct{}
+
+func listenForActivity(sub chan struct{}) tea.Cmd {
 	return func() tea.Msg {
 		for {
-			s := <-stg
-			switch {
-			case s == 1: //before pre-stage
-				time.Sleep(time.Second * time.Duration(m.stage.beforestg)) // nolint:gosec
-				m.stage.current++
-				return raceStatusMsg(<-m.stg)
-			case s == 2:
-				time.Sleep(time.Second * time.Duration(m.stage.prestg)) // nolint:gosec
-				m.stage.current++
-				return raceStatusMsg(<-m.stg)
-			case s == 3:
-				time.Sleep(time.Second * time.Duration(m.stage.stg)) // nolint:gosec
-				m.stage.current++
-				return raceStatusMsg(<-m.stg)
-			case s == 4:
-				time.Sleep(time.Second * time.Duration(m.stage.stg)) // nolint:gosec
-				m.stage.current++
-			}
+			//time.Sleep(time.Millisecond * 100) // nolint:gosec
+			sub <- struct{}{}
 		}
 	}
 }
-
+func waitForActivity(sub chan struct{}) tea.Cmd {
+	return func() tea.Msg {
+		return responseMsg(<-sub)
+	}
+}
+func (m model) View() string {
+	return fmt.Sprintf("Current stage:%d", m.stg)
+}
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	//.7-1.3second stage to yellow
+
+	//This needs to be done right so that there is a constant running even that sends a message when changed.
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		// If we set a width on the help menu it can gracefully truncate
+		// its view as needed.
+		m.help.Width = msg.Width
+
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
 			m.quitting = true
 			return m, tea.Quit
-		case key.Matches(msg, m.keys.Action): // location for action input / multi button
-			switch {
-			case !m.active:
-				m.setTimes()
-				m.active = true
-
-				// ^^^^^ It doesn't update stage current until done go routine
-
-				go m.raceStatus(m.stg)
-				m.stg <- m.stage.current
-				return m, nil
-			}
-			// begin - wait, prestage - wait, stage- wait, yellow- wait, green
-			return m, nil
-
-		default:
-			return m, nil
 		}
-	case raceStatusMsg:
-		s := m.stage.current
+		return m, waitForActivity(m.sub)
+	case responseMsg:
 		switch {
-		case s == 1:
-			//Pre-stage lights
-			m.stg <- s
-		case s == 2:
-			//Stage lights
-			m.stg <- s
-		case s == 3:
-			m.stg <- s
-			// Yellow lights
-
+		case m.stg == 0:
+			time.Sleep(time.Second * time.Duration(m.stgT.preStg))
+			m.stg++
+			return m, waitForActivity(m.sub)
+		case m.stg == 1:
+			time.Sleep(time.Second * time.Duration(m.stgT.fullStg))
+			m.stg++
+			return m, waitForActivity(m.sub)
+		case m.stg == 2:
+			time.Sleep(time.Millisecond * time.Duration(m.stgT.Yellow*1000))
+			m.stg++
+			return m, waitForActivity(m.sub)
+		case m.stg == 3:
+			time.Sleep(time.Millisecond * time.Duration(m.stgT.Green*1000))
+			m.stg++
+			return m, waitForActivity(m.sub)
+		case m.stg == 4:
+			time.Sleep(time.Second * time.Duration(5))
+			m.stg = 0
+			return m, waitForActivity(m.sub)
 		}
+
+		return m, waitForActivity(m.sub)
 	}
-	return m, nil
+	return m, waitForActivity(m.sub)
 }
-func (m model) View() string {
-	s := fmt.Sprintf("\n Current Stage: %d \n\n Press any key to exit\n\n ", m.stage.current)
-	if m.quitting {
-		s += "\n"
-	}
-	return s
-}
+
+// Main Function
 func main() {
-	p := tea.NewProgram(model{
-		active: false,
-		stg:    make(chan int),
-		keys:   keys,
-		stage:  stageTimes{yellow: .400, current: 1},
-	})
-	if _, err := p.Run(); err != nil {
-		fmt.Println("could not start program:", err)
+
+	if os.Getenv("HELP_DEBUG") != "" {
+		f, err := tea.LogToFile("debug.log", "help")
+		if err != nil {
+			fmt.Println("Couldn't open a file for logging:", err)
+			os.Exit(1)
+		}
+		defer f.Close() // nolint:errcheck
+	}
+
+	if _, err := tea.NewProgram(newModel()).Run(); err != nil {
+		fmt.Printf("Could not start program :(\n%v\n", err)
 		os.Exit(1)
 	}
 }
+
+//  ____________
+// |(oo)=||=(oo)|
+// |(oo)=||=(oo)|
+//   ==========
+//  |(O)=||=(O)|
+//  |(O)=||=(O)|
+//  |(O)=||=(O)|
+//  |====||====|
+//  |(O)=||=(O)|
+//   ==========
+//      ||||
+//      ||||
+//      ||||
+//      ||||
+//      ||||
+//      ||||
+// --------------
