@@ -19,6 +19,7 @@ type model struct {
 	quitting bool
 	stg      int
 	stgT     times
+	color    string
 
 	//	station    stations
 }
@@ -58,7 +59,7 @@ func newModel() model {
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		listenForActivity(m.sub), // generate activity
-		waitForActivity(m.sub),   // wait for activity
+		m.waitForActivity(m.sub), // wait for activity
 
 	)
 }
@@ -73,13 +74,30 @@ func listenForActivity(sub chan struct{}) tea.Cmd {
 		}
 	}
 }
-func waitForActivity(sub chan struct{}) tea.Cmd {
+func (m model) waitForActivity(sub chan struct{}) tea.Cmd {
+	switch {
+	case m.stg == 0:
+		time.Sleep(time.Second * time.Duration(m.stgT.preStg))
+
+	case m.stg == 1:
+		time.Sleep(time.Second * time.Duration(m.stgT.fullStg))
+
+	case m.stg == 2:
+		time.Sleep(time.Millisecond * time.Duration(m.stgT.Yellow*1000))
+
+	case m.stg == 3:
+		time.Sleep(time.Millisecond * time.Duration(m.stgT.Green*1000))
+
+	case m.stg == 4:
+		time.Sleep(time.Second * time.Duration(5))
+
+	}
 	return func() tea.Msg {
 		return responseMsg(<-sub)
 	}
 }
 func (m model) View() string {
-	return fmt.Sprintf("Current stage:%d", m.stg)
+	return fmt.Sprintf("Current stage:%d\nStatus:%v", m.stg, m.color)
 }
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
@@ -96,34 +114,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		}
-		return m, waitForActivity(m.sub)
+		return m, m.waitForActivity(m.sub)
 	case responseMsg:
 		switch {
 		case m.stg == 0:
-			time.Sleep(time.Second * time.Duration(m.stgT.preStg))
 			m.stg++
-			return m, waitForActivity(m.sub)
+			m.color = "Prestage"
+			return m, m.waitForActivity(m.sub)
+
 		case m.stg == 1:
-			time.Sleep(time.Second * time.Duration(m.stgT.fullStg))
 			m.stg++
-			return m, waitForActivity(m.sub)
+			m.color = "Stage"
+			return m, m.waitForActivity(m.sub)
+
 		case m.stg == 2:
-			time.Sleep(time.Millisecond * time.Duration(m.stgT.Yellow*1000))
 			m.stg++
-			return m, waitForActivity(m.sub)
+			m.color = "Yellow"
+			return m, m.waitForActivity(m.sub)
+
 		case m.stg == 3:
-			time.Sleep(time.Millisecond * time.Duration(m.stgT.Green*1000))
 			m.stg++
-			return m, waitForActivity(m.sub)
+			m.color = "Green"
+			return m, m.waitForActivity(m.sub)
+
 		case m.stg == 4:
 			time.Sleep(time.Second * time.Duration(5))
-			m.stg = 0
-			return m, waitForActivity(m.sub)
-		}
+			return m, m.waitForActivity(m.sub)
 
-		return m, waitForActivity(m.sub)
+		}
 	}
-	return m, waitForActivity(m.sub)
+	return m, m.waitForActivity(m.sub)
 }
 
 // Main Function
@@ -143,3 +163,21 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+//  ____________
+// |(oo)=||=(oo)|
+// |(oo)=||=(oo)|
+//   ==========
+//  |(O)=||=(O)|
+//  |(O)=||=(O)|
+//  |(O)=||=(O)|
+//  |====||====|
+//  |(O)=||=(O)|
+//   ==========
+//      ||||
+//      ||||
+//      ||||
+//      ||||
+//      ||||
+//      ||||
+// --------------
