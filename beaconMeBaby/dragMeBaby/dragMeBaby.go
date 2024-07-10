@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -17,18 +18,17 @@ import (
 type model struct {
 	stopwatch time.Duration
 
-	sub         chan struct{}
-	keys        keyMap
-	help        help.Model
-	active      bool
-	quitting    bool
-	stg         int
-	stgT        times
-	timer       time.Time //	station    stations
-	stageStyle  lipgloss.Style
-	yellowStyle lipgloss.Style
-	greenStyle  lipgloss.Style
-	greyStyle   lipgloss.Style
+	sub                     chan struct{}
+	keys                    keyMap
+	help                    help.Model
+	active                  bool
+	quitting                bool
+	stg                     int
+	stgT                    times
+	timer                   time.Time //	station    stations
+	stageStyle, yellowStyle lipgloss.Style
+	greenStyle, greyStyle   lipgloss.Style
+	Help                    help.Model
 }
 
 type times struct {
@@ -41,6 +41,18 @@ type keyMap struct {
 	Twenty key.Binding
 	Quit   key.Binding
 	Action key.Binding
+	Help   key.Binding
+}
+
+func (k keyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Help, k.Quit}
+}
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Help},           // second column
+		{k.Quit, k.Action}, // first column
+
+	}
 }
 
 var keys = keyMap{
@@ -51,6 +63,10 @@ var keys = keyMap{
 	Quit: key.NewBinding(
 		key.WithKeys("q"),
 		key.WithHelp("(q)", "Quit"),
+	),
+	Help: key.NewBinding(
+		key.WithKeys("?"),
+		key.WithHelp("(?)", "toggle help"),
 	),
 }
 
@@ -104,6 +120,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Quit):
 			m.quitting = true
 			return m, tea.Quit
+		case key.Matches(msg, m.keys.Help):
+			m.help.ShowAll = !m.help.ShowAll
 		case key.Matches(msg, m.keys.Action):
 			if m.stg == 4 {
 				x := time.Now()
@@ -197,6 +215,8 @@ func (m model) View() string {
 	var raceTime string
 	var tree string
 	var line1, stage1, stage2, line2, yellows, line3, greens, bottoms string
+	helpView := m.help.View(m.keys)
+
 	if m.stopwatch > 0 {
 		raceTime = "Elapsed Time: " + m.stopwatch.String()
 	}
@@ -243,9 +263,9 @@ func (m model) View() string {
      ||||
 --------------
 `
-
+	height := 2 - strings.Count(tree, "\n") - strings.Count(helpView, "\n")
 	tree = line1 + "\n" + stage1 + "\n" + stage2 + "\n" + line2 + "\n" + yellows + "\n" + yellows + "\n" + yellows + "\n" + line3 + "\n" + greens + "\n" + bottoms + "\n" + raceTime
-	return tree
+	return "\n" + tree + strings.Repeat("\n", height) + helpView
 }
 
 //  ____________
