@@ -105,20 +105,35 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case m.active:
 			switch {
 			case m.stg == 0:
-				if time.Duration(time.Since(m.timer)) > time.Duration(m.stgT.preStg) {
+				x := m.timer.Add(time.Millisecond * time.Duration(1000*m.stgT.preStg))
+				current := time.Now()
+				if current.After(x) {
 					m.stg++
+					m.timer = current
+
 				}
+
 			case m.stg == 1:
-				if time.Duration(time.Since(m.timer)) > time.Duration(m.stgT.fullStg) {
+				x := m.timer.Add(time.Millisecond * time.Duration(1000*m.stgT.fullStg))
+				current := time.Now()
+				if current.After(x) {
 					m.stg++
+					m.timer = current
 				}
+
 			case m.stg == 2:
-				if time.Duration(time.Since(m.timer)) > time.Duration(m.stgT.Yellow) {
+				x := m.timer.Add(time.Millisecond * time.Duration(1000*m.stgT.Yellow))
+				current := time.Now()
+				if current.After(x) {
 					m.stg++
+					m.timer = current
 				}
 			case m.stg == 3:
-				if time.Duration(time.Since(m.timer)) > time.Duration(m.stgT.Green) {
+				x := m.timer.Add(time.Millisecond * time.Duration(1000*m.stgT.Green))
+				current := time.Now()
+				if current.After(x) {
 					m.stg++
+					m.timer = current
 				}
 			case m.stg == 4:
 				time.Sleep(time.Second * 4)
