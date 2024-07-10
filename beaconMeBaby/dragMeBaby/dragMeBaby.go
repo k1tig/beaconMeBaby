@@ -110,8 +110,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.timer = time.Now()
 				m.active = true
 
-				return m, nil
-
 			}
 		}
 		return m, waitForActivity(m.sub)
@@ -165,6 +163,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				current := time.Now()
 				if current.After(x) {
 					m.stg = 0
+					m.active = false
 
 				}
 
