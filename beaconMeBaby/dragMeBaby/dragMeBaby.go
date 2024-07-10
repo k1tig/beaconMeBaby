@@ -16,11 +16,11 @@ type model struct {
 	sub      chan struct{}
 	keys     keyMap
 	help     help.Model
+	active   bool
 	quitting bool
 	stg      int
 	stgT     times
-
-	//	station    stations
+	timer    time.Time //	station    stations
 }
 
 type times struct {
@@ -29,7 +29,6 @@ type times struct {
 	Yellow  float32
 	Green   float32
 }
-
 type keyMap struct {
 	Twenty key.Binding
 	Quit   key.Binding
@@ -99,29 +98,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, waitForActivity(m.sub)
 	case responseMsg:
 		switch {
-		case m.stg == 0:
-			time.Sleep(time.Second * time.Duration(m.stgT.preStg))
-			m.stg++
-			return m, waitForActivity(m.sub)
-		case m.stg == 1:
-			time.Sleep(time.Second * time.Duration(m.stgT.fullStg))
-			m.stg++
-			return m, waitForActivity(m.sub)
-		case m.stg == 2:
-			time.Sleep(time.Millisecond * time.Duration(m.stgT.Yellow*1000))
-			m.stg++
-			return m, waitForActivity(m.sub)
-		case m.stg == 3:
-			time.Sleep(time.Millisecond * time.Duration(m.stgT.Green*1000))
-			m.stg++
-			return m, waitForActivity(m.sub)
-		case m.stg == 4:
-			time.Sleep(time.Second * time.Duration(5))
-			m.stg = 0
-			return m, waitForActivity(m.sub)
+		case !m.active:
+			now := time.Now()
+			m.timer = now
+			m.active = true
+		case m.active:
+			switch {
+			case m.stg == 0:
+				if time.Duration(time.Since(m.timer)) > time.Duration(m.stgT.preStg) {
+					m.stg++
+				}
+			case m.stg == 1:
+				if time.Duration(time.Since(m.timer)) > time.Duration(m.stgT.fullStg) {
+					m.stg++
+				}
+			case m.stg == 2:
+				if time.Duration(time.Since(m.timer)) > time.Duration(m.stgT.Yellow) {
+					m.stg++
+				}
+			case m.stg == 3:
+				if time.Duration(time.Since(m.timer)) > time.Duration(m.stgT.Green) {
+					m.stg++
+				}
+			case m.stg == 4:
+				time.Sleep(time.Second * 4)
+				m.stg = 0
+				m.active = false
+			}
 		}
-
-		return m, waitForActivity(m.sub)
 	}
 	return m, waitForActivity(m.sub)
 }
