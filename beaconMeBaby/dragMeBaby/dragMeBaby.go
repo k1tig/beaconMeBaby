@@ -5,11 +5,11 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/lipgloss"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -17,14 +17,18 @@ import (
 type model struct {
 	stopwatch time.Duration
 
-	sub      chan struct{}
-	keys     keyMap
-	help     help.Model
-	active   bool
-	quitting bool
-	stg      int
-	stgT     times
-	timer    time.Time //	station    stations
+	sub         chan struct{}
+	keys        keyMap
+	help        help.Model
+	active      bool
+	quitting    bool
+	stg         int
+	stgT        times
+	timer       time.Time //	station    stations
+	stageStyle  lipgloss.Style
+	yellowStyle lipgloss.Style
+	greenStyle  lipgloss.Style
+	greyStyle   lipgloss.Style
 }
 
 type times struct {
@@ -52,11 +56,15 @@ var keys = keyMap{
 
 func newModel() model {
 	return model{
-		sub:  make(chan struct{}),
-		keys: keys,
-		help: help.New(),
-		stg:  0,
-		stgT: times{preStg: 2, fullStg: 2, Yellow: 1.2, Green: .400},
+		sub:         make(chan struct{}),
+		keys:        keys,
+		help:        help.New(),
+		stg:         0,
+		stgT:        times{preStg: 2, fullStg: 2, Yellow: 1.2, Green: .400},
+		stageStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
+		yellowStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
+		greenStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("2")),
+		greyStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("0")),
 	}
 }
 func (m model) Init() tea.Cmd {
@@ -187,11 +195,57 @@ func main() {
 
 func (m model) View() string {
 	var raceTime string
+	var tree string
+	var line1, stage1, stage2, line2, yellows, line3, greens, bottoms string
 	if m.stopwatch > 0 {
 		raceTime = "Elapsed Time: " + m.stopwatch.String()
 	}
-	s := raceTime + "\nCurrent Stage: " + strconv.Itoa(m.stg)
-	return s
+
+	line1 = "______________"
+	if m.stg == 0 {
+		m.greyStyle.Render(tree)
+	}
+
+	if m.stg >= 1 {
+		stage1 = "|(" + m.stageStyle.Render("oo") + ")=||=(" + m.stageStyle.Render("oo") + ")|"
+	} else {
+		stage1 = "|(" + m.greyStyle.Render("oo") + ")=||=(" + m.greyStyle.Render("oo") + ")|"
+	}
+
+	if m.stg >= 2 {
+		stage2 = "|(" + m.stageStyle.Render("oo") + ")=||=(" + m.stageStyle.Render("oo") + ")|"
+	} else {
+		stage2 = "|(" + m.greyStyle.Render("oo") + ")=||=(" + m.greyStyle.Render("oo") + ")|"
+
+	}
+
+	if m.stg >= 3 {
+		yellows = " |(" + m.yellowStyle.Render("0") + ")=||=(" + m.yellowStyle.Render("0") + ")|"
+	} else {
+		yellows = " |(" + m.greyStyle.Render("0") + ")=||=(" + m.greyStyle.Render("0") + ")|"
+
+	}
+
+	if m.stg >= 4 {
+		greens = " |(" + m.greenStyle.Render("0") + ")=||=(" + m.greenStyle.Render("0") + ")|"
+	} else {
+		greens = " |(" + m.greyStyle.Render("0") + ")=||=(" + m.greyStyle.Render("0") + ")|"
+	}
+
+	line2 = "  =========="
+	line3 = " |====||====|"
+	bottoms = `  ==========
+     ||||
+     ||||
+     ||||
+     ||||
+     ||||
+     ||||
+--------------
+`
+
+	tree = line1 + "\n" + stage1 + "\n" + stage2 + "\n" + line2 + "\n" + yellows + "\n" + yellows + "\n" + yellows + "\n" + line3 + "\n" + greens + "\n" + bottoms + "\n" + raceTime
+	return tree
 }
 
 //  ____________
