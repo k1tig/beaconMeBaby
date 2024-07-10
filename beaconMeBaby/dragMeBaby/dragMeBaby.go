@@ -63,7 +63,6 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		listenForActivity(m.sub), // generate activity
 		waitForActivity(m.sub),   // wait for activity
-
 	)
 }
 
@@ -81,11 +80,6 @@ func waitForActivity(sub chan struct{}) tea.Cmd {
 	return func() tea.Msg {
 		return responseMsg(<-sub)
 	}
-}
-
-func (m model) View() string {
-	s := "Elapsed Time: " + m.stopwatch.String() + "\nCurrent Stage: " + strconv.Itoa(m.stg)
-	return s
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -128,7 +122,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if current.After(x) {
 					m.stg++
 					m.timer = current
-
 				}
 
 			case m.stg == 1:
@@ -164,9 +157,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if current.After(x) {
 					m.stg = 0
 					m.active = false
+					m.stopwatch = 0
 
 				}
-
 			}
 
 		}
@@ -190,6 +183,15 @@ func main() {
 		fmt.Printf("Could not start program :(\n%v\n", err)
 		os.Exit(1)
 	}
+}
+
+func (m model) View() string {
+	var raceTime string
+	if m.stopwatch > 0 {
+		raceTime = "Elapsed Time: " + m.stopwatch.String()
+	}
+	s := raceTime + "\nCurrent Stage: " + strconv.Itoa(m.stg)
+	return s
 }
 
 //  ____________
