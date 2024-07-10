@@ -5,14 +5,18 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type model struct {
+	stopwatch time.Duration
+
 	sub      chan struct{}
 	keys     keyMap
 	help     help.Model
@@ -32,10 +36,11 @@ type times struct {
 type keyMap struct {
 	Twenty key.Binding
 	Quit   key.Binding
+	Action key.Binding
 }
 
 var keys = keyMap{
-	Twenty: key.NewBinding(
+	Action: key.NewBinding(
 		key.WithKeys("g"),
 		key.WithHelp("(g)", "Action"),
 	),
@@ -51,7 +56,7 @@ func newModel() model {
 		keys: keys,
 		help: help.New(),
 		stg:  0,
-		stgT: times{preStg: 4, fullStg: 3, Yellow: 1.2, Green: .400},
+		stgT: times{preStg: 2, fullStg: 2, Yellow: 1.2, Green: .400},
 	}
 }
 func (m model) Init() tea.Cmd {
@@ -77,9 +82,12 @@ func waitForActivity(sub chan struct{}) tea.Cmd {
 		return responseMsg(<-sub)
 	}
 }
+
 func (m model) View() string {
-	return fmt.Sprintf("Current stage:%d", m.stg)
+	s := "Elapsed Time: " + m.stopwatch.String() + "\nCurrent Stage: " + strconv.Itoa(m.stg)
+	return s
 }
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	//This needs to be done right so that there is a constant running even that sends a message when changed.
@@ -94,14 +102,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Quit):
 			m.quitting = true
 			return m, tea.Quit
+		case key.Matches(msg, m.keys.Action):
+			if m.stg == 4 {
+				x := time.Now()
+				m.stopwatch = x.Sub(m.timer)
+				m.stg++
+				m.timer = time.Now()
+				m.active = true
+
+				return m, nil
+
+			}
 		}
 		return m, waitForActivity(m.sub)
 	case responseMsg:
 		switch {
-		case !m.active:
+		case !m.active && m.stg == 0:
 			now := time.Now()
 			m.timer = now
 			m.active = true
+			m.keys.Action.SetEnabled(true)
 		case m.active:
 			switch {
 			case m.stg == 0:
@@ -134,12 +154,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if current.After(x) {
 					m.stg++
 					m.timer = current
+
 				}
 			case m.stg == 4:
-				time.Sleep(time.Second * 4)
-				m.stg = 0
+				m.timer = time.Now()
 				m.active = false
+
+			case m.stg == 5:
+				x := m.timer.Add(time.Second * 5)
+				current := time.Now()
+				if current.After(x) {
+					m.stg = 0
+
+				}
+
 			}
+
 		}
 	}
 	return m, waitForActivity(m.sub)
